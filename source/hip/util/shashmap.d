@@ -201,6 +201,8 @@ struct HashMap(K, V)
 
 	inout(V)* get(K key) inout
 	{
+		if(capacity == 0)
+			return null;
 		size_t hash = getHash(key);
         int currentMap = mapsCount - 1;
         HashMap!(K, V)* current = currentMap == -1 ? cast(HashMap!(K, V)*)&this : cast(HashMap!(K, V)*)&maps[currentMap];
