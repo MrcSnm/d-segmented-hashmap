@@ -13,5 +13,5 @@
 		}
 	],
 	"license": "BSL-1.0",
-	"name": "shashtest"
+	"name": "d-segmented-hashmap"
 }
