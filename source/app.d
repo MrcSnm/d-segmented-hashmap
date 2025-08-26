@@ -1,4 +1,4 @@
-import shashmap;
+import hip.util.shashmap;
 import std.stdio;
 import std.datetime.stopwatch;
 

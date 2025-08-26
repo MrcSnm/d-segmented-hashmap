@@ -1,4 +1,4 @@
-module shashmap;
+module hip.util.shashmap;
 
 enum DefaultInitSize = 8;
 struct HashMap(K, V)
