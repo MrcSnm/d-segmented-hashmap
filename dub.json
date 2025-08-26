@@ -1,0 +1,17 @@
+{
+	"authors": [
+		"Marcelo Silva Nascimento Mancini"
+	],
+	"description": "A segmented hash map/associative array/aa implementation for D which provides must faster table creation",
+	"configurations": [
+		{
+			"name": "library",
+			"excludedSourceFiles": ["source/app.d"]
+		},
+		{
+			"name": "test"
+		}
+	],
+	"license": "BSL-1.0",
+	"name": "shashtest"
+}

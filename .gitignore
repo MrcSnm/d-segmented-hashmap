@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/shashtest
+shashtest.so
+shashtest.dylib
+shashtest.dll
+shashtest.a
+shashtest.lib
+shashtest-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
