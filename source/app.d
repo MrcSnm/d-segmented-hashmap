@@ -81,14 +81,37 @@ void main()
 		}
 	})(1);
 
+	writeln("Putting after manual removal:");
+	writeln = benchmark!(()
+	{
+		foreach(i; 0..50_000)
+		{
+			// writeln = "Removing "~identifiers[i];
+			map[values[i]] = identifiers[i];
+		}
+	})(1);
+
+	map.clear();
+	writeln("Putting after clear.");
+
+	writeln = benchmark!(()
+	{
+		foreach(i; 0..50_000)
+		{
+			// writeln = "Removing "~identifiers[i];
+			map[values[i]] = identifiers[i];
+		}
+	})(1);
+
 	// writeln = benchmark!(()
 	// {
-	// 	foreach(i; 0..50_000)
-	// 	{
-	// 		// writeln = "Removing "~identifiers[i];
-	// 		map[values[i]] = identifiers[i];
-	// 	}
-	// })(1);
+	// 	map.keys();
+	// })(100);
+
+	// writeln = benchmark!(()
+	// {
+	// 	map.values();
+	// })(100);
 
 	writeln = map.length;
 

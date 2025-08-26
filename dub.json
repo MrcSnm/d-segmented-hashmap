@@ -9,7 +9,7 @@
 			"excludedSourceFiles": ["source/app.d"]
 		},
 		{
-			"name": "test"
+			"name": "tester"
 		}
 	],
 	"license": "BSL-1.0",

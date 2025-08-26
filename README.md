@@ -12,7 +12,7 @@ A segmented hash map implementation for D which provides must faster table creat
 
 ### Cons:
 - A `get` operation with best case of `O(1)` and worst case of `O(log n)`. Though it will never be `O(n)` since no rehash happens
-- After removing elements, other segmentations of the map will become unused. - This maybe can be improved
+- After removing elements, other segmentations of the map will become unused. True removal can only be achieved when calling `.clear()`
 
 
 

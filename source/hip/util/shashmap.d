@@ -18,7 +18,7 @@ struct HashMap(K, V)
     private HashMap!(K, V)* maps;
 	private uint capacity;
 	uint length;
-	private uint mapsCount;
+	private uint actualMapsCount, mapsCount;
 
 
 	static if(SeparateSlotState)
@@ -95,9 +95,17 @@ struct HashMap(K, V)
         import core.memory;
         mapsCount++;
         if(maps == null)
+		{
+			actualMapsCount++;
             maps = cast(HashMap!(K, V)*)GC.malloc(mapsCount* HashMap!(K, V).sizeof);
-        else
-            maps = cast(HashMap!(K, V)*)GC.realloc(maps, mapsCount* HashMap!(K, V).sizeof);
+		}
+        else if(mapsCount > actualMapsCount)
+		{
+			actualMapsCount = mapsCount;
+            maps = cast(HashMap!(K, V)*)GC.realloc(maps, actualMapsCount* HashMap!(K, V).sizeof);
+		}
+		else
+			return;
         HashMap!(K, V)* lastMap = mapsCount == 1 ? &this : &maps[mapsCount-2];
         maps[mapsCount-1].setCapacity(lastMap.capacity * GrowthFactor);
     }
@@ -124,6 +132,11 @@ struct HashMap(K, V)
 	{
 		return get(key);	
 	}
+	auto opBinary(string op)(const K key) if(op == "in")
+	{
+		return get(key);	
+	}
+	alias opBinaryRight = opBinary;
 
 	auto opIndexAssign(V value, K key)
 	{
@@ -219,14 +232,18 @@ struct HashMap(K, V)
 		import core.memory;
 		auto ret = cast(K*)GC.malloc(K.sizeof*length);
 		size_t index = 0;
-		foreach(i; 0..capacity)
+		HashMap!(K, V)* current = &this;
+		size_t currentMap = 0;
+		while(true)
 		{
-			if(getState(i) == SlotState.alive)
+			foreach(i; 0..current.capacity)
 			{
-				ret[index++] = keyValues[i].key;
-				if(index == length)
-					break;
+				if(current.getState(i) == SlotState.alive)
+					ret[index++] = current.keyValues[i].key;
 			}
+			if(currentMap == mapsCount)
+				break;
+			current = &maps[currentMap++];
 		}
 		return ret[0..length];
 	}
@@ -235,16 +252,37 @@ struct HashMap(K, V)
 		import core.memory;
 		auto ret = cast(V*)GC.malloc(V.sizeof*length);
 		size_t index = 0;
-		foreach(i; 0..capacity)
+		HashMap!(K, V)* current = &this;
+		size_t currentMap = 0;
+		while(true)
 		{
-			if(getState(i) == SlotState.alive)
+			foreach(i; 0..current.capacity)
 			{
-				ret[index++] = keyValues[i].value;
-				if(index == length)
-					break;
+				if(current.getState(i) == SlotState.alive)
+					ret[index++] = current.keyValues[i].value;
 			}
+			if(currentMap == mapsCount)
+				break;
+			current = &maps[currentMap++];
 		}
 		return ret[0..length];
+	}
+
+	void clear()
+	{
+		HashMap!(K, V)* current = &this;
+		size_t currentMap = 0;
+
+		while(true)
+		{
+			foreach(i; 0..current.capacity)
+				current.setState(i, SlotState.empty);
+			if(currentMap == mapsCount)
+				break;
+			current = &maps[currentMap++];
+		}
+		mapsCount = 0;
+		length = 0;
 	}
 
 	void remove(K key)
