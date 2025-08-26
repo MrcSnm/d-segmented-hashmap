@@ -209,11 +209,10 @@ struct HashMap(K, V)
             size_t currCapacity = current.capacity;
             size_t maxProbes = getMaxProbes(currCapacity);
 
-            if(current.getState(hash % currCapacity) == SlotState.alive) 
             for (size_t probeCount = 0; probeCount <= maxProbes; probeCount++)
             {
                 size_t cHash = (hash + probeCount) % currCapacity;
-                if (current.getState(cHash) == SlotState.empty)
+                if (current.getState(cHash) != SlotState.alive)
                     break;
                 if(current.keyValues[cHash].key == key)
                     return cast(inout)&(current).keyValues[cHash].value;
@@ -297,7 +296,6 @@ struct HashMap(K, V)
 			size_t maxProbes = getMaxProbes(currCapacity);
 
 			int probeIndex = -1;
-			if(current.getState(precalcHash % currCapacity) != SlotState.empty) 
 			for (int probeCount = 0; probeCount <= maxProbes; probeCount++)
 			{
 				size_t cHash = (precalcHash + probeCount) % currCapacity;
@@ -329,17 +327,20 @@ struct HashMap(K, V)
 	{
 		int result = 0;
 		int index = 0;
+		int count = 0;
 		int mapIndex = 0;
 		const(HashMap!(K, V))* currMap = &this;
-		foreach(i; 0..length)
+
+		while(count < length)
 		{
-			if(index >= currMap.capacity)
+			if(index == currMap.capacity)
 			{
 				currMap = &maps[mapIndex++];
 				index = 0;
 			}
 			if(currMap.getState(index) == SlotState.alive)
 			{
+				count++;
 				result = dg(cast()currMap.keyValues[index].key, cast()currMap.keyValues[index].value);
 				if (result)
 					break;
@@ -352,17 +353,20 @@ struct HashMap(K, V)
 	{
 		int result = 0;
 		int index = 0;
+		int count = 0;
 		int mapIndex = 0;
 		const(HashMap!(K, V))* currMap = &this;
-		foreach(i; 0..length)
+
+		while(count < length)
 		{
-			if(index >= currMap.capacity)
+			if(index == currMap.capacity)
 			{
 				currMap = &maps[mapIndex++];
 				index = 0;
 			}
 			if(currMap.getState(index) == SlotState.alive)
 			{
+				count++;
 				result = dg(cast()currMap.keyValues[index].value);
 				if (result)
 					break;

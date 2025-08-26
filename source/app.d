@@ -103,15 +103,15 @@ void main()
 		}
 	})(1);
 
-	// writeln = benchmark!(()
-	// {
-	// 	map.keys();
-	// })(100);
+	writeln = benchmark!(()
+	{
+		map.keys();
+	})(100);
 
-	// writeln = benchmark!(()
-	// {
-	// 	map.values();
-	// })(100);
+	writeln = benchmark!(()
+	{
+		map.values();
+	})(100);
 
 	writeln = map.length;
 
@@ -125,4 +125,5 @@ void main()
 	writeln("Free: ", stats.freeSize / 1_000_000, " MB");
 	writeln("Used: ", stats.usedSize / 1_000_000, " MB");
 
+	alias MyMap = HashMap!(string, HashMap!(string, string));
 }
