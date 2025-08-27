@@ -120,24 +120,15 @@ struct HashMap(K, V)
 			return hash_64_fnv1a(&key, cast(ulong)key.sizeof);
 	}
 
-	ref auto opIndex(K key)
+	ref inout(V) opIndex(K key) inout
 	{
 		return *get(key);
 	}
-	const ref auto opIndex(K key)
+	inout(V)* opBinary(string op)(const K key) inout if(op == "in")
 	{
-		return *get(key);
-	}
-	auto opBinary(string op)(const K key) const if(op == "in")
-	{
-		return get(key);	
-	}
-	auto opBinary(string op)(const K key) if(op == "in")
-	{
-		return get(key);	
+		return get(key);
 	}
 	alias opBinaryRight = opBinary;
-
 	auto opIndexAssign(V value, K key)
 	{
 		put(key, value);
@@ -337,9 +328,11 @@ struct HashMap(K, V)
 		{
 			if(index == currMap.capacity)
 			{
+				assert(maps != null, "Null maps? Did something happen?");
 				currMap = &maps[mapIndex++];
 				index = 0;
 			}
+
 			if(currMap.getState(index) == SlotState.alive)
 			{
 				count++;
