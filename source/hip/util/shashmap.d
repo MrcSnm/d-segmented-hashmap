@@ -135,7 +135,13 @@ struct HashMap(K, V)
 		return value;
 	}
 
-	void uncheckedPut(K key, V value)
+	/**
+	 * Params:
+	 *   key = The key to set
+	 *   value = The value to set
+	 * Returns: Whether the length has increased or not
+	 */
+	bool uncheckedPut(K key, V value)
 	{
 		size_t hash = getHash(key);
         HashMap!(K, V)* current = mapsCount == 0 ? &this : &maps[mapsCount-1];
@@ -153,14 +159,14 @@ struct HashMap(K, V)
 				else
 					current.keyValues[currHash] = KV(SString(key.length, key.ptr), value);
 				current.setState(currHash, SlotState.alive);
-				return;
+				return true;
 			}
 			else
 			{
 				if(current.keyValues[currHash].key == key)
 				{
 					current.keyValues[currHash].value = value;
-					return;
+					return false;
 				}
 			}
             if(probeCount++ == getMaxProbes(currCapacity))
@@ -185,9 +191,8 @@ struct HashMap(K, V)
         {
 			branch();
         }
-		uncheckedPut(key, value);
-		length++;
-
+		if(uncheckedPut(key, value))
+			length++;
 	}
 
 	inout(V)* get(K key) inout
@@ -371,7 +376,7 @@ struct HashMap(K, V)
 		return result;
 	}
 
-	private auto entryRange(alias entryOp)()
+	private auto entryRange(alias entryOp)() inout
 	{
 		static struct EntryRange
 		{
@@ -410,18 +415,18 @@ struct HashMap(K, V)
 			}
 			bool empty() => count == length;
 		}
-		return EntryRange(&this, &this, length, 0, 0);
+		return EntryRange(cast(HashMap!(K, V)*)&this, cast(HashMap!(K, V)*)&this, length, 0, 0);
 	}
-	auto byKey()
+	auto byKey() inout
 	{
 		return entryRange!((ref KV kv) => kv.key);
 	}
-	auto byValue()
+	auto byValue() inout
 	{
 		return entryRange!((ref KV kv) => kv.value);
 	}
 
-	auto byKeyValue()
+	auto byKeyValue() inout
 	{
 		return entryRange!((ref KV kv) => kv);
 	}
@@ -521,4 +526,19 @@ size_t getMaxProbes(size_t capacity)
     if(capacity <= 16384)
         return 16;
     return 32;
+}
+
+
+unittest
+{
+	HashMap!(string, string) test;
+	test["hello"] = "world";
+	test["hello"] = "brother";
+
+	foreach(k, v; test)
+	{
+		assert(v == "brother");
+	}
+
+	assert(test.length == 1, "Failed at length test");
 }
