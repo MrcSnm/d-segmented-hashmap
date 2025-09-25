@@ -36,6 +36,11 @@ struct HashMap(K, V)
 		{
 			return getState(states, index);
 		}
+
+		pragma(inline, true) bool isDeadOrEmpty(size_t index) const
+		{
+			return getState(states, index) != SlotState.alive;
+		}
 		void setState(size_t index, SlotState state)
 		{
 			auto arrayIndex = index >> 2;
@@ -51,19 +56,28 @@ struct HashMap(K, V)
 	}
 	else
 	{
-		void setState(size_t index, SlotState state)
+		pragma(inline, true)
 		{
-			keyValues[index].key.setExtra(state);
+			void setState(size_t index, SlotState state)
+			{
+				keyValues[index].key.setExtra(state);
 
-			assert(getState(index) == state, " Set state false ");
-		}
-		SlotState getState(const(KV)* keysArr, size_t index) const
-		{
-			return cast(SlotState)(keysArr[index].key.extra);
-		}
-		SlotState getState(size_t index) const
-		{
-			return getState(keyValues, index);
+				assert(getState(index) == state, " Set state false ");
+			}
+			SlotState getState(const(KV)* keysArr, size_t index) const
+			{
+				return cast(SlotState)(keysArr[index].key.extra);
+			}
+
+			bool isDeadOrEmpty(const(KV)* keysArr, size_t index) const
+			{
+				return (keysArr[index].key.isDeadOrEmpty);
+			}
+
+			SlotState getState(size_t index) const
+			{
+				return getState(keyValues, index);
+			}
 		}
 	}
 
@@ -135,6 +149,14 @@ struct HashMap(K, V)
 		return value;
 	}
 
+	static pragma(inline, true) bool isDeadOrEmpty(HashMap!(K, V)* current, size_t hash, KV* kv)
+	{
+		static if(SeparateSlotState)
+			return current.isDeadOrEmpty(current.keyValues, hash);
+		else
+			return kv.key.isDeadOrEmpty();
+	}
+
 	/**
 	 * Params:
 	 *   key = The key to set
@@ -145,36 +167,43 @@ struct HashMap(K, V)
 	{
 		size_t hash = getHash(key);
         HashMap!(K, V)* current = mapsCount == 0 ? &this : &maps[mapsCount-1];
+		KV* currentKv = current.keyValues;
         size_t currCapacity = current.capacity;
 		size_t currHash = hash % currCapacity;
         int probeCount = 0;
 
+		size_t maxProbes = getMaxProbes(currCapacity);
+
 		while(true)
 		{
-			SlotState st = current.getState(currHash);
-			if(st != SlotState.alive)
+			KV* kv = &currentKv[currHash];
+			if(isDeadOrEmpty(current, currHash, kv))
 			{
 				static if(SeparateSlotState)
-					current.keyValues[currHash] = KV(key, value);
+				{
+					*kv = KV(key, value);
+					current.setState(currHash, SlotState.alive);
+				}
 				else
-					current.keyValues[currHash] = KV(SString(key.length, key.ptr), value);
-				current.setState(currHash, SlotState.alive);
+					*kv = KV(SString.create(key.length, key.ptr, SlotState.alive), value);
 				return true;
 			}
 			else
 			{
-				if(current.keyValues[currHash].key == key)
+				if(kv.key == key)
 				{
-					current.keyValues[currHash].value = value;
+					kv.value = value;
 					return false;
 				}
 			}
-            if(probeCount++ == getMaxProbes(currCapacity))
+            if(probeCount++ == maxProbes)
             {
                 probeCount = 0;
                 branch();
                 current = &maps[mapsCount - 1];
+                currentKv = current.keyValues;
                 currCapacity = current.capacity;
+				maxProbes = getMaxProbes(currCapacity);
             }
 			currHash = (hash + probeCount) % currCapacity;
 		}
@@ -461,18 +490,19 @@ ulong hash_64_fnv1a(const void* key, const ulong len) {
     return hash;
 } 
 
-private enum SlotState : ubyte
+enum SlotState : ubyte
 {
 	empty = 0,
 	alive = 1,
 	dead = 0b10
 }
 
-private struct SString
+struct SString
 {
 	size_t length;
 	private immutable(char)* ptr;
 	enum size_t mask = 0b11UL << 62;
+	enum size_t isAliveBit = cast(size_t)SlotState.alive << 62;
 
 	pragma(inline, true)
 	string toString() const
@@ -484,12 +514,23 @@ private struct SString
 		return ret;
 	}
 
+	pragma(inline, true) static SString create(size_t length, immutable(char)* ptr, ubyte ex)
+	{
+		assert(ex <= 0b11, "Extra too big.");
+		return SString(length | (cast(size_t)ex << 62), ptr);
+	}
+
 	pragma(inline, true)
 	SString opAssign(string other)
 	{
 		length = other.length | extra;
 		ptr = cast(immutable(char)*)other.ptr;
 		return this;
+	}
+
+	pragma(inline, true) bool isDeadOrEmpty() const
+	{
+		return !(length & isAliveBit);
 	}
 
 	pragma(inline, true)  bool opEquals(string other) const { return other == toString; }
