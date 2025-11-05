@@ -115,7 +115,7 @@ struct HashMap(K, V)
         if(maps == null)
 		{
 			actualMapsCount++;
-            maps = cast(HashMap!(K, V)*)GC.malloc(mapsCount* HashMap!(K, V).sizeof);
+            maps = cast(HashMap!(K, V)*)GC.malloc(mapsCount* HashMap!(K, V).sizeof, GC.BlkAttr.APPENDABLE);
 		}
         else if(mapsCount > actualMapsCount)
 		{
@@ -259,20 +259,23 @@ struct HashMap(K, V)
 	}
 
 
-	K[] keys()
+		K[] keys()
 	{
 		import core.memory;
 		auto ret = cast(K*)GC.malloc(K.sizeof*length);
 		size_t index = 0;
 		HashMap!(K, V)* current = &this;
-		for(size_t currentMap = 0; currentMap < mapsCount; currentMap++)
+		size_t currentMap = 0;
+		while(true)
 		{
 			foreach(i; 0..current.capacity)
 			{
 				if(current.getState(i) == SlotState.alive)
 					ret[index++] = current.keyValues[i].key;
 			}
-			current = &maps[currentMap];
+			if(currentMap == mapsCount)
+				break;
+			current = &maps[currentMap++];
 		}
 		return ret[0..length];
 	}
@@ -282,14 +285,17 @@ struct HashMap(K, V)
 		auto ret = cast(V*)GC.malloc(V.sizeof*length);
 		size_t index = 0;
 		HashMap!(K, V)* current = &this;
-		for(size_t currentMap = 0; currentMap < mapsCount; currentMap++)
+		size_t currentMap = 0;
+		while(true)
 		{
 			foreach(i; 0..current.capacity)
 			{
 				if(current.getState(i) == SlotState.alive)
 					ret[index++] = current.keyValues[i].value;
 			}
-			current = &maps[currentMap];
+			if(currentMap == mapsCount)
+				break;
+			current = &maps[currentMap++];
 		}
 		return ret[0..length];
 	}
@@ -297,15 +303,19 @@ struct HashMap(K, V)
 	void clear()
 	{
 		HashMap!(K, V)* current = &this;
-		for(size_t currentMap = 0; currentMap < mapsCount; currentMap++)
+		size_t currentMap = 0;
+		while(true)
 		{
 			foreach(i; 0..current.capacity)
 				current.setState(i, SlotState.empty);
-			current = &maps[currentMap];
+			if(currentMap == mapsCount)
+				break;
+			current = &maps[currentMap++];
 		}
 		mapsCount = 0;
 		length = 0;
 	}
+
 
 	void remove(K key)
 	{
