@@ -4,8 +4,6 @@ enum DefaultInitSize = 8;
 struct HashMap(K, V)
 {
 	private enum SeparateSlotState = !is(K == string);
-	// private enum SeparateSlotState = true;
-
     struct KV
     {
         static if(!SeparateSlotState)
@@ -18,7 +16,10 @@ struct HashMap(K, V)
     private HashMap!(K, V)* maps;
 	private uint capacity;
 	uint length;
-	private uint actualMapsCount, mapsCount;
+	private ubyte actualMapsCount, mapsCount;
+	private bool uniqueOnly;
+	private uint currentCapacity;
+	private float resizeFactor;
 
 
 	static if(SeparateSlotState)
@@ -98,6 +99,9 @@ struct HashMap(K, V)
 		{
 			keyValues[0..capacity] = KV.init;
 		}
+		currentCapacity = cast(uint)getStructureCapacity(capacity, mapsCount);
+		resizeFactor = getResizeFactor(cast(uint)capacity);
+
 	}
     static size_t getStructureCapacity(size_t capacity, size_t maps)
     {
@@ -122,6 +126,8 @@ struct HashMap(K, V)
 			return;
         HashMap!(K, V)* lastMap = mapsCount == 1 ? &this : &maps[mapsCount-2];
         maps[mapsCount-1].setCapacity(lastMap.capacity * GrowthFactor);
+		currentCapacity = cast(uint)getStructureCapacity(capacity, mapsCount);
+		resizeFactor = getResizeFactor(capacity);
     }
 
 	static pragma(inline, true) size_t getHash(K key)
@@ -152,10 +158,13 @@ struct HashMap(K, V)
 	static pragma(inline, true) bool isDeadOrEmpty(HashMap!(K, V)* current, size_t hash, KV* kv)
 	{
 		static if(SeparateSlotState)
-			return current.isDeadOrEmpty(current.keyValues, hash);
+			return current.isDeadOrEmpty(hash);
 		else
 			return kv.key.isDeadOrEmpty();
 	}
+
+	void assumeUniqueKeys(bool assume) { uniqueOnly = assume; }
+	bool isAssumingUniqueKeys() const { return uniqueOnly; }
 
 	/**
 	 * Params:
@@ -173,7 +182,6 @@ struct HashMap(K, V)
         int probeCount = 0;
 
 		size_t maxProbes = getMaxProbes(currCapacity);
-
 		while(true)
 		{
 			KV* kv = &currentKv[currHash];
@@ -188,7 +196,7 @@ struct HashMap(K, V)
 					*kv = KV(SString.create(key.length, key.ptr, SlotState.alive), value);
 				return true;
 			}
-			else
+			else if(!uniqueOnly)
 			{
 				if(kv.key == key)
 				{
@@ -214,9 +222,7 @@ struct HashMap(K, V)
 			setCapacity(DefaultInitSize);
 
 		// if((length > UseCollisionRateThreshold && cast(float)collisionsInLength / length > CollisionFactor) ||
-        if(
-			cast(float)(length + 1) / getStructureCapacity(capacity, mapsCount) > getResizeFactor(capacity)
-		)
+        if(cast(float)(length + 1) / currentCapacity > resizeFactor)
         {
 			branch();
         }
@@ -259,17 +265,14 @@ struct HashMap(K, V)
 		auto ret = cast(K*)GC.malloc(K.sizeof*length);
 		size_t index = 0;
 		HashMap!(K, V)* current = &this;
-		size_t currentMap = 0;
-		while(true)
+		for(size_t currentMap = 0; currentMap < mapsCount; currentMap++)
 		{
 			foreach(i; 0..current.capacity)
 			{
 				if(current.getState(i) == SlotState.alive)
 					ret[index++] = current.keyValues[i].key;
 			}
-			if(currentMap == mapsCount)
-				break;
-			current = &maps[currentMap++];
+			current = &maps[currentMap];
 		}
 		return ret[0..length];
 	}
@@ -279,17 +282,14 @@ struct HashMap(K, V)
 		auto ret = cast(V*)GC.malloc(V.sizeof*length);
 		size_t index = 0;
 		HashMap!(K, V)* current = &this;
-		size_t currentMap = 0;
-		while(true)
+		for(size_t currentMap = 0; currentMap < mapsCount; currentMap++)
 		{
 			foreach(i; 0..current.capacity)
 			{
 				if(current.getState(i) == SlotState.alive)
 					ret[index++] = current.keyValues[i].value;
 			}
-			if(currentMap == mapsCount)
-				break;
-			current = &maps[currentMap++];
+			current = &maps[currentMap];
 		}
 		return ret[0..length];
 	}
@@ -297,15 +297,11 @@ struct HashMap(K, V)
 	void clear()
 	{
 		HashMap!(K, V)* current = &this;
-		size_t currentMap = 0;
-
-		while(true)
+		for(size_t currentMap = 0; currentMap < mapsCount; currentMap++)
 		{
 			foreach(i; 0..current.capacity)
 				current.setState(i, SlotState.empty);
-			if(currentMap == mapsCount)
-				break;
-			current = &maps[currentMap++];
+			current = &maps[currentMap];
 		}
 		mapsCount = 0;
 		length = 0;
