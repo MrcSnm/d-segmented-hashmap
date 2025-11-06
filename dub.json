@@ -5,11 +5,22 @@
 	"description": "A segmented hash map/associative array/aa implementation for D which provides must faster table creation",
 	"configurations": [
 		{
-			"name": "library",
+			"name": "fnv1a",
 			"excludedSourceFiles": ["source/app.d"]
 		},
 		{
-			"name": "tester"
+			"name": "murmurhash2",
+			"excludedSourceFiles": ["source/app.d"],
+			"dependencies": {
+				"murmurhash-d": "~>1.0.0"
+			}
+		},
+		{"name": "test-fnv1a"},
+		{
+			"name": "test-murmurhash2",
+			"dependencies": {
+				"murmurhash-d": "~>1.0.0"
+			}
 		}
 	],
 	"license": "BSL-1.0",

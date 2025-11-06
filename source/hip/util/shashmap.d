@@ -133,11 +133,28 @@ struct HashMap(K, V)
 	static pragma(inline, true) size_t getHash(K key)
 	{
 		static if(is(K == string))
+		{
+			version(Have_murmurhash_d)
+			{
+				import murmurhash2;
+				return MurmurHash64A(key.ptr, cast(int)key.length, 0);
+			}
+			else
+				return hash_64_fnv1a(key.ptr, cast(ulong)key.length);
 			// return xxhash(cast(ubyte*)key.ptr, key.length);
-			return hash_64_fnv1a(key.ptr, cast(ulong)key.length);
-		else 
+
+		}
+		else
+		{
+			version(Have_murmurhash_d)
+			{
+				import murmurhash2;
+				return MurmurHash64A(&key, cast(int)key.sizeof, 0);
+			}
+			else
+				return hash_64_fnv1a(&key, cast(ulong)key.sizeof);
 			// return xxhash(cast(ubyte*)&key, key.sizeof);
-			return hash_64_fnv1a(&key, cast(ulong)key.sizeof);
+		}
 	}
 
 	ref inout(V) opIndex(K key) inout
