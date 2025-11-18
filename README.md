@@ -25,7 +25,8 @@ HashMap!(string, string) map;
 //map.setCapacity(50_000); //You may use that for reserving the size
 foreach(i; 0..50000)
 {
-    map[identifiers[i]] = values[i];
+    //map[identifiers[i]] = values[i];
+    map.putNew(identifies[i], values[i]); //That line is 10x faster than the line above. But it doesn't check for existing keys
 }
 
 foreach(string value; map)

@@ -17,7 +17,6 @@ struct HashMap(K, V)
 	private uint capacity;
 	uint length;
 	private ubyte actualMapsCount, mapsCount;
-	private bool uniqueOnly;
 	private uint currentCapacity;
 	private float resizeFactor;
 
@@ -157,11 +156,12 @@ struct HashMap(K, V)
 		}
 	}
 
-	ref inout(V) opIndex(K key) inout
+	pragma(inline, true) ref inout(V) opIndex(K key) inout
 	{
 		return *get(key);
 	}
-	inout(V)* opBinary(string op)(const K key) inout if(op == "in")
+
+	pragma(inline, true) inout(V)* opBinary(string op)(const K key) inout if(op == "in")
 	{
 		return get(key);
 	}
@@ -180,16 +180,14 @@ struct HashMap(K, V)
 			return kv.key.isDeadOrEmpty();
 	}
 
-	void assumeUniqueKeys(bool assume) { uniqueOnly = assume; }
-	bool isAssumingUniqueKeys() const { return uniqueOnly; }
-
 	/**
+	 * It doesn't try to update existing key which makes sense for adding new keys.
 	 * Params:
 	 *   key = The key to set
 	 *   value = The value to set
 	 * Returns: Whether the length has increased or not
 	 */
-	bool uncheckedPut(K key, V value)
+	private bool uncheckedPut(K key, V value)
 	{
 		size_t hash = getHash(key);
         HashMap!(K, V)* current = mapsCount == 0 ? &this : &maps[mapsCount-1];
@@ -213,14 +211,6 @@ struct HashMap(K, V)
 					*kv = KV(SString.create(key.length, key.ptr, SlotState.alive), value);
 				return true;
 			}
-			else if(!uniqueOnly)
-			{
-				if(kv.key == key)
-				{
-					kv.value = value;
-					return false;
-				}
-			}
             if(probeCount++ == maxProbes)
             {
                 probeCount = 0;
@@ -233,12 +223,28 @@ struct HashMap(K, V)
 			currHash = (hash + probeCount) % currCapacity;
 		}
 	}
+
 	void put(K key, V value)
+	{
+		V* v = get(key);
+		if(v)
+			*v = value;
+		else
+			putNew(key, value);
+	}
+
+	/**
+	 * This is 10x faster than doing a put for bigger maps.
+	 * It doesn't check for existing keys which also makes it faster when linear probing.
+	 * Always prefer this one in the case of populating the map.
+	 * Params:
+	 *   key = The actual key
+	 *   value = The actual value
+	 */
+	void putNew(K key, V value)
 	{
 		if(capacity == 0)
 			setCapacity(DefaultInitSize);
-
-		// if((length > UseCollisionRateThreshold && cast(float)collisionsInLength / length > CollisionFactor) ||
         if(cast(float)(length + 1) / currentCapacity > resizeFactor)
         {
 			branch();
@@ -247,6 +253,12 @@ struct HashMap(K, V)
 			length++;
 	}
 
+	/**
+	 * Implementation for opIn
+	 * Params:
+	 *   key = The target keys
+	 * Returns: A reference to the hashmap slot which contains the value
+	 */
 	inout(V)* get(K key) inout
 	{
 		if(capacity == 0)
@@ -275,8 +287,10 @@ struct HashMap(K, V)
 		return null;
 	}
 
-
-		K[] keys()
+	/**
+	 * Returns: K[length] slice allocated with GC.malloc
+	 */
+	K[] keys()
 	{
 		import core.memory;
 		auto ret = cast(K*)GC.malloc(K.sizeof*length);
@@ -296,6 +310,9 @@ struct HashMap(K, V)
 		}
 		return ret[0..length];
 	}
+	/**
+	 * Returns: V[length] slice allocated with GC.malloc
+	 */
 	V[] values()
 	{
 		import core.memory;

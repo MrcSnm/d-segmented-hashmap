@@ -27,7 +27,8 @@ Used: 25 MB
 void main()
 {
 	import std.conv:to;
-	enum tests = 100;
+	enum tests = 1000;
+
 	string[] identifiers;
 	string[] values;
 	foreach(i; 0..50000)
@@ -40,12 +41,14 @@ void main()
 	string target;
 
 		// string[string] map;
-		HashMap!(string, string) map;
+	HashMap!(string, string) map;
+	writeln("Putting identifiers inside map.");
 	writeln = benchmark!(() {
 		// HashMap!(string, string) map;
 		// map.setCapacity(50_000);
 		foreach(i; 0..50000)
 		{
+			// map.putNew(identifiers[i], values[i]);
 			map[identifiers[i]] = values[i];
 		}
 		// foreach(i; 0..50000)
@@ -56,6 +59,7 @@ void main()
 	})(1);
 
 	int count = 0;
+	writeln = "Iterating values on map";
 	writeln = benchmark!(()
 	{
 		foreach(value; map)
@@ -72,6 +76,7 @@ void main()
 		// }
 	})(tests);
 
+	writeln = "Removing values";
 	writeln = benchmark!(()
 	{
 		foreach(i; 0..50_000)
